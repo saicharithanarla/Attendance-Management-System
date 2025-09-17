@@ -1,0 +1,99 @@
+import mysql.connector
+from datetime import date
+
+def connect_db():
+    return mysql.connector.connect(
+        host="localhost",
+        user="root",
+        password="",
+        database="attendance_system"
+    )
+
+def add_student(name, roll_no):
+    db = connect_db()
+    cursor = db.cursor()
+    sql = "INSERT INTO students (name, roll_no) VALUES (%s, %s)"
+    cursor.execute(sql, (name, roll_no))
+    db.commit()
+    print("Student", name, "added successfully")
+    db.close()
+
+def view_students():
+    db = connect_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM students")
+    for student in cursor.fetchall():
+        print(student)
+    db.close()
+
+def mark_attendance(roll_no, status):
+    db = connect_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT id FROM students WHERE roll_no = %s", (roll_no,))
+    result = cursor.fetchone()
+    if not result:
+        print("Student not found")
+        db.close()
+        return
+    student_id = result[0]
+    today = date.today()
+    cursor.execute("SELECT * FROM attendance WHERE student_id=%s AND date=%s", (student_id, today))
+    if cursor.fetchone():
+        print("Attendance already marked for today")
+    else:
+        sql = "INSERT INTO attendance (student_id, date, status) VALUES (%s, %s, %s)"
+        cursor.execute(sql, (student_id, today, status))
+        db.commit()
+        print("Attendance marked for roll", roll_no, "as", status)
+    db.close()
+
+def attendance_percentage(roll_no):
+    db = connect_db()
+    cursor = db.cursor()
+    cursor.execute("SELECT id FROM students WHERE roll_no = %s", (roll_no,))
+    result = cursor.fetchone()
+    if not result:
+        print("Student not found")
+        db.close()
+        return
+    student_id = result[0]
+    cursor.execute("SELECT COUNT(*) FROM attendance WHERE student_id=%s", (student_id,))
+    total_days = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM attendance WHERE student_id=%s AND status='Present'", (student_id,))
+    present_days = cursor.fetchone()[0]
+    if total_days == 0:
+        print("No attendance records found")
+    else:
+        percentage = (present_days / total_days) * 100
+        print("Roll", roll_no, "Attendance:", present_days, "/", total_days, "=", round(percentage, 2), "%")
+    db.close()
+
+def menu():
+    while True:
+        print("\nAttendance Management System")
+        print("1. Add Student")
+        print("2. View Students")
+        print("3. Mark Attendance")
+        print("4. Show Attendance Percentage")
+        print("5. Exit")
+        choice = input("Enter choice: ")
+        if choice == "1":
+            name = input("Enter student name: ")
+            roll_no = input("Enter roll number: ")
+            add_student(name, roll_no)
+        elif choice == "2":
+            view_students()
+        elif choice == "3":
+            roll_no = input("Enter roll number: ")
+            status = input("Enter status (Present/Absent): ")
+            mark_attendance(roll_no, status)
+        elif choice == "4":
+            roll_no = input("Enter roll number: ")
+            attendance_percentage(roll_no)
+        elif choice == "5":
+            print("Exiting")
+            break
+        else:
+            print("Invalid choice")
+
+menu()
